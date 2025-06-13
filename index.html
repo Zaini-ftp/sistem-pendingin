@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Kontrol Sistem Pendingin</title>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
       margin: 0;
       padding: 0;
-      background: #f0f4f8;
+      background: #eef3f8;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -17,37 +17,73 @@
       height: 100vh;
     }
     .card {
-      background: white;
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      background: #fff;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
       text-align: center;
       width: 90%;
-      max-width: 400px;
+      max-width: 450px;
     }
     h1 {
-      font-size: 1.5rem;
+      font-size: 1.8rem;
       color: #333;
+      margin-bottom: 10px;
     }
     .temperature {
-      font-size: 2.5rem;
+      font-size: 2.8rem;
       color: #007bff;
-      margin: 10px 0;
+      margin: 10px 0 30px 0;
     }
-    .switch-group {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 20px;
+    .switch-section {
+      margin-bottom: 25px;
     }
     .switch-label {
       display: flex;
-      flex-direction: column;
       align-items: center;
+      justify-content: space-between;
+      margin: 10px 0;
+      font-size: 1rem;
       font-weight: 600;
     }
-    input[type="checkbox"] {
-      width: 50px;
-      height: 25px;
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 32px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 32px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 24px;
+      width: 24px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #007bff;
+    }
+    input:checked + .slider:before {
+      transform: translateX(28px);
     }
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -60,26 +96,42 @@
       <p>Suhu Saat Ini</p>
       <div class="temperature" id="suhu">-- °C</div>
     </div>
-    <div class="switch-group">
-      <label class="switch-label">
+
+    <div class="switch-section">
+      <div class="switch-label">
+        Sistem Utama
+        <label class="switch">
+          <input type="checkbox" id="switchUtama" onchange="toggleUtama()">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="switch-label">
         Mode 15°C
-        <input type="checkbox" id="switch15" onchange="toggleMode('mode_15')">
-      </label>
-      <label class="switch-label">
+        <label class="switch">
+          <input type="checkbox" id="switch15" onchange="toggleMode('mode_15')">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="switch-label">
         Mode 20°C
-        <input type="checkbox" id="switch20" onchange="toggleMode('mode_20')">
-      </label>
+        <label class="switch">
+          <input type="checkbox" id="switch20" onchange="toggleMode('mode_20')">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
   </div>
 
   <script>
-    // Konfigurasi Firebase
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAFHeWf7DeuUkF9ex3LB3a2gQVCFFgZ-cg",
       authDomain: "sistem-pendingin.firebaseapp.com",
       databaseURL: "https://sistem-pendingin-default-rtdb.firebaseio.com",
       projectId: "sistem-pendingin",
-      storageBucket: "sistem-pendingin.firebasestorage.app",
+      storageBucket: "sistem-pendingin.appspot.com",
       messagingSenderId: "127904975797",
       appId: "1:127904975797:web:b9e73aee0006e3d28ca7fc"
     };
@@ -87,16 +139,38 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Tampilkan suhu secara realtime
+    // Suhu realtime
     db.ref("/DATA/suhu").on("value", (snapshot) => {
       const suhu = snapshot.val();
       document.getElementById("suhu").textContent = suhu + " °C";
     });
 
-    // Toggle switch logika eksklusif
+    // Toggle sistem utama
+    function toggleUtama() {
+      const sistemUtama = document.getElementById("switchUtama").checked;
+      db.ref("/DATA/sistem_utama").set(sistemUtama ? "ON" : "OFF");
+
+      // Jika OFF, matikan semua mode juga
+      if (!sistemUtama) {
+        db.ref("/DATA/mode_15").set("OFF");
+        db.ref("/DATA/mode_20").set("OFF");
+        document.getElementById("switch15").checked = false;
+        document.getElementById("switch20").checked = false;
+      }
+    }
+
+    // Toggle mode
     function toggleMode(mode) {
+      const sistemUtama = document.getElementById("switchUtama").checked;
       const switch15 = document.getElementById("switch15");
       const switch20 = document.getElementById("switch20");
+
+      if (!sistemUtama) {
+        alert("Nyalakan Sistem Utama terlebih dahulu!");
+        switch15.checked = false;
+        switch20.checked = false;
+        return;
+      }
 
       if (mode === "mode_15") {
         if (switch15.checked) {
@@ -117,7 +191,10 @@
       }
     }
 
-    // Sinkronkan switch saat reload halaman
+    // Sinkronisasi saat reload halaman
+    db.ref("/DATA/sistem_utama").on("value", (snap) => {
+      document.getElementById("switchUtama").checked = snap.val() === "ON";
+    });
     db.ref("/DATA/mode_15").on("value", (snap) => {
       document.getElementById("switch15").checked = snap.val() === "ON";
     });
