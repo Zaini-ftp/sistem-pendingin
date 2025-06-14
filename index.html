@@ -11,46 +11,48 @@
       padding: 0;
       background: #eef3f8;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      min-height: 100vh;
     }
     .card {
-      background: #fff;
+      background: #ffffff;
       border-radius: 20px;
-      padding: 30px;
+      padding: 25px;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-      text-align: center;
       width: 90%;
-      max-width: 450px;
+      max-width: 400px;
+      text-align: center;
     }
     h1 {
-      font-size: 1.8rem;
-      color: #333;
+      font-size: 1.5rem;
       margin-bottom: 10px;
     }
     .temperature {
-      font-size: 2.8rem;
+      font-size: 2.2rem;
       color: #007bff;
-      margin: 10px 0 30px 0;
+      margin: 10px 0 20px 0;
     }
-    .switch-section {
-      margin-bottom: 25px;
+    .label {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 15px;
+    }
+    .switch-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 20px 0;
     }
     .switch-label {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin: 10px 0;
-      font-size: 1rem;
+      margin-right: 10px;
       font-weight: 600;
     }
     .switch {
       position: relative;
       display: inline-block;
-      width: 60px;
-      height: 32px;
+      width: 50px;
+      height: 28px;
     }
     .switch input {
       opacity: 0;
@@ -66,13 +68,13 @@
       bottom: 0;
       background-color: #ccc;
       transition: .4s;
-      border-radius: 32px;
+      border-radius: 28px;
     }
     .slider:before {
       position: absolute;
       content: "";
-      height: 24px;
-      width: 24px;
+      height: 20px;
+      width: 20px;
       left: 4px;
       bottom: 4px;
       background-color: white;
@@ -83,7 +85,24 @@
       background-color: #007bff;
     }
     input:checked + .slider:before {
-      transform: translateX(28px);
+      transform: translateX(22px);
+    }
+    .checkbox-group {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+    }
+    .checkbox-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+    .aktif-menit {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 20px;
+      color: #333;
     }
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -91,41 +110,35 @@
 </head>
 <body>
   <div class="card">
-    <h1>Kontrol Pendingin</h1>
-    <div>
-      <p>Suhu Saat Ini</p>
-      <div class="temperature" id="suhu">-- °C</div>
+    <h1>kontrol pendingin</h1>
+    <div class="label">suhu saat ini</div>
+    <div class="temperature" id="suhu">-- °C</div>
+
+    <div class="switch-container">
+      <div class="switch-label">Sistem Utama</div>
+      <label class="switch">
+        <input type="checkbox" id="switchUtama" onchange="toggleUtama()">
+        <span class="slider"></span>
+      </label>
     </div>
 
-    <div class="switch-section">
-      <div class="switch-label">
-        Sistem Utama
-        <label class="switch">
-          <input type="checkbox" id="switchUtama" onchange="toggleUtama()">
-          <span class="slider"></span>
-        </label>
+    <div class="checkbox-group">
+      <div class="checkbox-item">
+        <input type="checkbox" id="switch20" onchange="toggleMode('mode_20')">
+        <label for="switch20">batas 20°</label>
       </div>
+      <div class="checkbox-item">
+        <input type="checkbox" id="switch15" onchange="toggleMode('mode_15')">
+        <label for="switch15">batas 15°</label>
+      </div>
+    </div>
 
-      <div class="switch-label">
-        Mode 15°C
-        <label class="switch">
-          <input type="checkbox" id="switch15" onchange="toggleMode('mode_15')">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="switch-label">
-        Mode 20°C
-        <label class="switch">
-          <input type="checkbox" id="switch20" onchange="toggleMode('mode_20')">
-          <span class="slider"></span>
-        </label>
-      </div>
+    <div class="aktif-menit">
+      Lama Waktu menyala: <span id="aktifMenit">--</span> menit
     </div>
   </div>
 
   <script>
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAFHeWf7DeuUkF9ex3LB3a2gQVCFFgZ-cg",
       authDomain: "sistem-pendingin.firebaseapp.com",
@@ -139,19 +152,33 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Suhu realtime
+    // Tampilkan suhu realtime
     db.ref("/DATA/suhu").on("value", (snapshot) => {
       const suhu = snapshot.val();
       document.getElementById("suhu").textContent = suhu + " °C";
     });
 
-    // Toggle sistem utama
-    function toggleUtama() {
-      const sistemUtama = document.getElementById("switchUtama").checked;
-      db.ref("/DATA/sistem_utama").set(sistemUtama ? "ON" : "OFF");
+    // Lama aktif (mode 15/20)
+    db.ref("/DATA/aktif_menit").on("value", (snapshot) => {
+      const menit = snapshot.val();
+      document.getElementById("aktifMenit").textContent = menit;
+    });
 
-      // Jika OFF, matikan semua mode juga
-      if (!sistemUtama) {
+    // Sinkronisasi status saat load halaman
+    db.ref("/DATA/sistem_utama").on("value", (snap) => {
+      document.getElementById("switchUtama").checked = snap.val() === "ON";
+    });
+    db.ref("/DATA/mode_15").on("value", (snap) => {
+      document.getElementById("switch15").checked = snap.val() === "ON";
+    });
+    db.ref("/DATA/mode_20").on("value", (snap) => {
+      document.getElementById("switch20").checked = snap.val() === "ON";
+    });
+
+    function toggleUtama() {
+      const status = document.getElementById("switchUtama").checked;
+      db.ref("/DATA/sistem_utama").set(status ? "ON" : "OFF");
+      if (!status) {
         db.ref("/DATA/mode_15").set("OFF");
         db.ref("/DATA/mode_20").set("OFF");
         document.getElementById("switch15").checked = false;
@@ -159,14 +186,13 @@
       }
     }
 
-    // Toggle mode
     function toggleMode(mode) {
       const sistemUtama = document.getElementById("switchUtama").checked;
       const switch15 = document.getElementById("switch15");
       const switch20 = document.getElementById("switch20");
 
       if (!sistemUtama) {
-        alert("Nyalakan Sistem Utama terlebih dahulu!");
+        alert("Aktifkan Sistem Utama terlebih dahulu!");
         switch15.checked = false;
         switch20.checked = false;
         return;
@@ -180,7 +206,9 @@
         } else {
           db.ref("/DATA/mode_15").set("OFF");
         }
-      } else if (mode === "mode_20") {
+      }
+
+      if (mode === "mode_20") {
         if (switch20.checked) {
           switch15.checked = false;
           db.ref("/DATA/mode_20").set("ON");
@@ -190,17 +218,6 @@
         }
       }
     }
-
-    // Sinkronisasi saat reload halaman
-    db.ref("/DATA/sistem_utama").on("value", (snap) => {
-      document.getElementById("switchUtama").checked = snap.val() === "ON";
-    });
-    db.ref("/DATA/mode_15").on("value", (snap) => {
-      document.getElementById("switch15").checked = snap.val() === "ON";
-    });
-    db.ref("/DATA/mode_20").on("value", (snap) => {
-      document.getElementById("switch20").checked = snap.val() === "ON";
-    });
   </script>
 </body>
 </html>
